@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Group - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div style="margin-bottom: 20px;">
+            <a href="groups.html" class="btn btn-secondary">← Back to Groups</a>
+        </div>
+
+        <div id="loading" class="card" style="text-align: center;">
+            <p>Loading group...</p>
+        </div>
+
+        <div id="groupContent" style="display: none;">
+            <div class="card" id="groupHeader">
+            </div>
+
+            <div class="card" id="adminControls" style="display: none;">
+                <h3>👑 Admin Controls</h3>
+                <div id="adminContent"></div>
+            </div>
+
+            <div class="card" id="postFormCard" style="display: none;">
+                <h3>Create Post</h3>
+                <form id="postForm">
+                    <textarea id="post_content" placeholder="Write something..." required style="width: 100%; min-height: 80px; margin-bottom: 10px;"></textarea>
+                    <button type="submit" class="btn btn-primary">Post</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Posts</h3>
+                <div id="groupPosts"></div>
+            </div>
+
+            <div class="card" id="membersSection">
+                <h3>Members</h3>
+                <div id="membersList"></div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-success { background: var(--success); color: #fff; }
+        .badge-warning { background: var(--warning); color: #000; }
+        .badge-primary { background: var(--primary); color: #fff; }
+        .btn-warning { background: var(--warning); color: #000; }
+        .btn-warning:hover { background: #e6a800; }
+        
+        .member-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .member-card img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .post-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .post-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .post-header img {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .comment-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .comment-item img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .join-request-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+    </style>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupId = urlParams.get('id');
+
+        if (!groupId) {
+            window.location.href = 'groups.html';
+        }
+
+        let currentView = 'main';
+
+        async function loadGroup() {
+            try {
+                const group = await apiRequest(`/groups/${groupId}`);
+                const myRole = await apiRequest(`/groups/${groupId}/my-role`);
+
+                document.title = `${group.Name} - BRACu Socials`;
+
+                let actionBtn = '';
+                if (!myRole.is_member) {
+                    if (myRole.has_pending_request) {
+                        actionBtn = '<span style="color: var(--warning); font-weight: bold;">⏳ Join Request Pending</span>';
+                    } else if (group.Privacy === 'private') {
+                        actionBtn = `<button class="btn btn-primary" onclick="requestJoin()">Request to Join</button>`;
+                    } else {
+                        actionBtn = `<button class="btn btn-primary" onclick="joinGroup()">Join Group</button>`;
+                    }
+                } else {
+                    actionBtn = `<button class="btn btn-danger" onclick="leaveGroup()">Leave Group</button>`;
+                }
+
+                document.getElementById('groupHeader').innerHTML = `
+                    <div class="flex-between" style="margin-bottom: 15px;">
+                        <div>
+                            <h1 style="margin: 0;">
+                                ${group.Name} 
+                                <span class="badge ${group.Privacy === 'private' ? 'badge-warning' : 'badge-success'}">${group.Privacy}</span>
+                            </h1>
+                            <p style="color: var(--text-secondary); margin-top: 5px;">${group.Category}</p>
+                        </div>
+                        <div>${actionBtn}</div>
+                    </div>
+                    <p style="margin-bottom: 15px;">${group.Description || 'No description'}</p>
+                    <div class="flex" style="gap: 20px; color: var(--text-secondary);">
+                        <span>👥 ${group.member_count} members</span>
+                        <span>📅 Created by ${group.creator_name}</span>
+                        ${myRole.is_member ? `<span>🎭 Your Role: <strong>${myRole.role}</strong></span>` : ''}
+                    </div>
+                `;
+
+                if (myRole.role === 'Admin') {
+                    document.getElementById('adminControls').style.display = 'block';
+                    document.getElementById('adminContent').innerHTML = `
+                        <div class="flex" style="gap: 10px; margin-top: 10px;">
+                            <button class="btn btn-secondary" onclick="showJoinRequests()">View Join Requests</button>
+                            <button class="btn btn-secondary" onclick="showMembers()">Manage Members</button>
+                        </div>
+                    `;
+                }
+
+                if (myRole.is_member) {
+                    document.getElementById('postFormCard').style.display = 'block';
+                }
+
+                if (group.Privacy === 'public' || myRole.is_member) {
+                    await loadPosts();
+                } else {
+                    document.getElementById('groupPosts').innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Join this private group to see posts</p>';
+                }
+
+                await loadMemberPreview();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('groupContent').style.display = 'block';
+            } catch (error) {
+                document.getElementById('loading').innerHTML = `<p style="color: var(--danger);">Error loading group: ${error.message}</p>`;
+            }
+        }
+
+        async function loadPosts() {
+            try {
+                const posts = await apiRequest(`/groups/${groupId}/posts`);
+                const container = document.getElementById('groupPosts');
+
+                if (posts.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No posts yet</p>';
+                    return;
+                }
+
+                container.innerHTML = posts.map(post => `
+                    <div class="post-card">
+                        <div class="post-header">
+                            <img src="/uploads/${post.Profile_pic}" alt="${post.Full_name}" 
+                                 onerror="this.src='../assets/images/default-avatar.svg'">
+                            <div style="flex: 1;">
+                                <a href="view-profile.html?id=${post.user_id}" style="color: inherit; font-weight: 600;">${post.Full_name}</a>
+                                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">${getTimeAgo(post.Created_at)}</p>
+                            </div>
+                        </div>
+                        <p style="margin-bottom: 15px;">${post.Content}</p>
+                        
+                        <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+                            <div id="comments-list-${post.ID}" style="max-height: 300px; overflow-y: auto; margin-bottom: 10px;"></div>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="comment-input-${post.ID}" placeholder="Write a comment..." 
+                                       style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                                <button class="btn btn-primary btn-sm" onclick="addComment(${post.ID})">Comment</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                posts.forEach(post => loadComments(post.ID));
+            } catch (error) {
+                console.error('Error loading posts:', error);
+            }
+        }
+
+        async function loadComments(postId) {
+            try {
+                const comments = await apiRequest(`/groups/posts/${postId}/comments`);
+                const container = document.getElementById(`comments-list-${postId}`);
+
+                if (comments.length === 0) {
+                    container.innerHTML = '<p style="font-size: 13px; color: var(--text-secondary);">No comments yet</p>';
+                    return;
+                }
+
+                container.innerHTML = comments.map(comment => `
+                    <div class="comment-item">
+                        <img src="/uploads/${comment.Profile_pic}" alt="" onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div style="flex: 1;">
+                            <div class="flex-between">
+                                <strong style="font-size: 13px;">${comment.Full_name}</strong>
+                                <span style="font-size: 11px; color: var(--text-secondary);">${getTimeAgo(comment.Created_at)}</span>
+                            </div>
+                            <p style="font-size: 13px; margin: 4px 0 0 0;">${comment.Content}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading comments:', error);
+            }
+        }
+
+        async function addComment(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            const content = input.value.trim();
+
+            if (!content) return;
+
+            try {
+                await apiRequest('/groups/posts/comments', {
+                    method: 'POST',
+                    body: JSON.stringify({ post_id: postId, content })
+                });
+                input.value = '';
+                loadComments(postId);
+            } catch (error) {
+                alert('Error adding comment: ' + error.message);
+            }
+        }
+
+        async function loadMemberPreview() {
+            try {
+                const members = await apiRequest(`/groups/${groupId}/members`);
+                const container = document.getElementById('membersList');
+
+                if (members.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No members</p>';
+                    return;
+                }
+
+                const displayMembers = members.slice(0, 5);
+                container.innerHTML = displayMembers.map(member => `
+                    <div class="member-card">
+                        <img src="/uploads/${member.Profile_pic}" alt="${member.Full_name}" 
+                             onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div style="flex: 1;">
+                            <a href="view-profile.html?id=${member.ID}" style="color: inherit; font-weight: 600;">
+                                ${member.Full_name}
+                            </a>
+                            ${member.role === 'Admin' ? '<span class="badge badge-primary" style="margin-left: 5px;">Admin</span>' : ''}
+                            <p style="font-size: 13px; color: var(--text-secondary); margin: 2px 0 0 0;">${member.Department || 'No department'} • Year ${member.Year || 'N/A'}</p>
+                        </div>
+                    </div>
+                `).join('');
+
+                if (members.length > 5) {
+                    container.innerHTML += `<p style="text-align: center; color: var(--text-secondary);">And ${members.length - 5} more members...</p>`;
+                }
+            } catch (error) {
+                console.error('Error loading members:', error);
+            }
+        }
+
+        async function showJoinRequests() {
+            try {
+                const requests = await apiRequest(`/groups/${groupId}/join-requests`);
+                const container = document.getElementById('adminContent');
+
+                if (requests.length === 0) {
+                    container.innerHTML = `
+                        <p style="margin: 15px 0;">No pending join requests</p>
+                        <button class="btn btn-secondary" onclick="loadGroup()">← Back</button>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <h4 style="margin: 15px 0 10px 0;">Pending Requests (${requests.length})</h4>
+                    ${requests.map(req => `
+                        <div class="join-request-card">
+                            <div class="flex" style="gap: 10px;">
+                                <img src="/uploads/${req.Profile_pic}" alt="" style="width: 45px; height: 45px; border-radius: 50%;" 
+                                     onerror="this.src='../assets/images/default-avatar.svg'">
+                                <div>
+                                    <strong>${req.Full_name}</strong>
+                                    <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">${req.Student_ID} • ${req.Department || 'No dept'}</p>
+                                </div>
+                            </div>
+                            <div class="flex" style="gap: 8px;">
+                                <button class="btn btn-primary btn-sm" onclick="handleRequest(${req.ID}, 'approve')">Approve</button>
+                                <button class="btn btn-danger btn-sm" onclick="handleRequest(${req.ID}, 'reject')">Reject</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                    <button class="btn btn-secondary" onclick="loadGroup()">← Back</button>
+                `;
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function handleRequest(requestId, action) {
+            try {
+                await apiRequest(`/groups/${groupId}/join-requests/${requestId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ action })
+                });
+                alert(action === 'approve' ? 'Request approved!' : 'Request rejected');
+                showJoinRequests();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function showMembers() {
+            try {
+                const members = await apiRequest(`/groups/${groupId}/members`);
+                const myRole = await apiRequest(`/groups/${groupId}/my-role`);
+                const group = await apiRequest(`/groups/${groupId}`);
+                const isCreator = group.Created_by === getUserInfo()?.id;
+
+                const container = document.getElementById('adminContent');
+
+                container.innerHTML = `
+                    <h4 style="margin: 15px 0 10px 0;">All Members (${members.length})</h4>
+                    ${members.map(member => {
+                        let adminBtn = '';
+                        if (myRole.role === 'Admin' && member.role !== 'Admin') {
+                            adminBtn = `<button class="btn btn-secondary btn-sm" onclick="promoteToAdmin(${member.ID})">Make Admin</button>`;
+                        } else if (isCreator && member.role === 'Admin' && member.ID !== getUserInfo()?.id) {
+                            adminBtn = `<button class="btn btn-warning btn-sm" onclick="demoteAdmin(${member.ID})">Remove Admin</button>`;
+                        }
+
+                        return `
+                            <div class="join-request-card">
+                                <div class="flex" style="gap: 10px;">
+                                    <img src="/uploads/${member.Profile_pic}" alt="" style="width: 45px; height: 45px; border-radius: 50%;" 
+                                         onerror="this.src='../assets/images/default-avatar.svg'">
+                                    <div>
+                                        <strong>${member.Full_name}</strong>
+                                        ${member.role === 'Admin' ? '<span class="badge badge-primary" style="margin-left: 5px;">Admin</span>' : ''}
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">${member.Student_ID} • ${member.Department || 'No dept'}</p>
+                                    </div>
+                                </div>
+                                <div>${adminBtn}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                    <button class="btn btn-secondary" onclick="loadGroup()">← Back</button>
+                `;
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function promoteToAdmin(userId) {
+            try {
+                await apiRequest(`/groups/${groupId}/admins`, {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId })
+                });
+                alert('User promoted to admin!');
+                showMembers();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function demoteAdmin(userId) {
+            if (!confirm('Remove this user from admin role?')) return;
+            try {
+                await apiRequest(`/groups/${groupId}/admins`, {
+                    method: 'DELETE',
+                    body: JSON.stringify({ user_id: userId })
+                });
+                alert('Admin removed');
+                showMembers();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function joinGroup() {
+            try {
+                const result = await apiRequest(`/groups/${groupId}/join`, { method: 'POST' });
+                alert(result.message);
+                loadGroup();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function requestJoin() {
+            try {
+                const result = await apiRequest(`/groups/${groupId}/join`, { method: 'POST' });
+                alert(result.message);
+                loadGroup();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function leaveGroup() {
+            if (!confirm('Are you sure you want to leave this group?')) return;
+            try {
+                await apiRequest(`/groups/${groupId}/leave`, { method: 'DELETE' });
+                alert('You have left the group');
+                window.location.href = 'groups.html';
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        document.getElementById('postForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const content = document.getElementById('post_content').value;
+            try {
+                await apiRequest('/groups/posts', {
+                    method: 'POST',
+                    body: JSON.stringify({ group_id: groupId, content })
+                });
+                document.getElementById('post_content').value = '';
+                loadPosts();
+            } catch (error) {
+                alert('Error posting: ' + error.message);
+            }
+        });
+
+        loadGroup();
+    </script>
+</body>
+</html>

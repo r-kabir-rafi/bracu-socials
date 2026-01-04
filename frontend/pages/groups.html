@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groups - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>Groups</h1>
+
+        <div class="card">
+            <div class="flex-between mb-20">
+                <input type="text" id="searchQuery" placeholder="Search groups..." style="flex: 1; margin-right: 10px;">
+                <button class="btn btn-primary" onclick="openModal('createGroupModal')">Create Group</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="tab-container">
+                <button class="tab-btn active" onclick="switchTab('my-groups')">My Groups</button>
+                <button class="tab-btn" onclick="switchTab('all-groups')">Discover Groups</button>
+            </div>
+
+            <div id="myGroupsTab" class="tab-content">
+                <div id="myGroupsList" class="grid grid-2"></div>
+            </div>
+
+            <div id="allGroupsTab" class="tab-content" style="display: none;">
+                <div id="allGroupsList" class="grid grid-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="createGroupModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('createGroupModal')">&times;</span>
+            <h2>Create Group</h2>
+            <form id="createGroupForm">
+                <div class="form-group">
+                    <label for="group_name">Group Name</label>
+                    <input type="text" id="group_name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="group_description">Description</label>
+                    <textarea id="group_description" name="description" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="group_category">Category</label>
+                    <select id="group_category" name="category" required>
+                        <option value="">Select category</option>
+                        <option value="Academic">Academic</option>
+                        <option value="Sports">Sports</option>
+                        <option value="Arts">Arts</option>
+                        <option value="Technology">Technology</option>
+                        <option value="Music">Music</option>
+                        <option value="Gaming">Gaming</option>
+                        <option value="Books">Books</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="group_privacy">Privacy</label>
+                    <select id="group_privacy" name="privacy" required>
+                        <option value="public">Public</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Create Group</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="viewGroupModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('viewGroupModal')">&times;</span>
+            <div id="groupDetails"></div>
+            <hr style="margin: 20px 0;">
+            <h3>Group Posts</h3>
+            <div id="groupPosts"></div>
+        </div>
+    </div>
+
+    <style>
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-success { background: var(--success); color: #fff; }
+        .badge-warning { background: var(--warning); color: #000; }
+        .badge-primary { background: var(--primary); color: #fff; }
+        .btn-warning { background: var(--warning); color: #000; }
+        .btn-warning:hover { background: #e6a800; }
+    </style>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        let currentTab = 'my-groups';
+        let currentGroupId = null;
+
+        let searchTimeout;
+        document.getElementById('searchQuery').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            
+            if (query.length < 2) {
+                if (currentTab === 'all-groups') loadAllGroups();
+                return;
+            }
+
+            searchTimeout = setTimeout(() => searchGroups(query), 300);
+        });
+
+        async function searchGroups(query) {
+            try {
+                const groups = await apiRequest(`/groups/search?query=${encodeURIComponent(query)}`);
+                displayGroups(groups, 'allGroupsList');
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('myGroupsTab').style.display = tab === 'my-groups' ? 'block' : 'none';
+            document.getElementById('allGroupsTab').style.display = tab === 'all-groups' ? 'block' : 'none';
+
+            loadTabContent();
+        }
+
+        async function loadTabContent() {
+            if (currentTab === 'my-groups') {
+                loadMyGroups();
+            } else {
+                loadAllGroups();
+            }
+        }
+
+        async function loadMyGroups() {
+            try {
+                const groups = await apiRequest('/groups/my-groups');
+                displayGroups(groups, 'myGroupsList');
+            } catch (error) {
+                console.error('Error loading groups:', error);
+            }
+        }
+
+        async function loadAllGroups() {
+            try {
+                const groups = await apiRequest('/groups');
+                displayGroups(groups, 'allGroupsList');
+            } catch (error) {
+                console.error('Error loading groups:', error);
+            }
+        }
+
+        function displayGroups(groups, containerId) {
+            const container = document.getElementById(containerId);
+            
+            if (groups.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No groups found</p>';
+                return;
+            }
+
+            container.innerHTML = groups.map(group => {
+                let actionBtn = '';
+                
+                if (containerId === 'allGroupsList') {
+                    if (group.is_member > 0) {
+                        actionBtn = '<span style="color: var(--success);">✓ Joined</span>';
+                    } else if (group.has_pending_request > 0) {
+                        actionBtn = '<span style="color: var(--warning);">⏳ Pending</span>';
+                    } else if (group.Privacy === 'private') {
+                        actionBtn = `<button class="btn btn-secondary btn-sm" onclick="requestJoin(${group.ID})">Request to Join</button>`;
+                    } else {
+                        actionBtn = `<button class="btn btn-secondary btn-sm" onclick="joinGroup(${group.ID})">Join</button>`;
+                    }
+                }
+
+                return `
+                    <div class="card">
+                        <div class="flex-between" style="margin-bottom: 10px;">
+                            <h3>${group.Name}</h3>
+                            <span class="badge ${group.Privacy === 'private' ? 'badge-warning' : 'badge-success'}">${group.Privacy}</span>
+                        </div>
+                        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">${group.Description || 'No description'}</p>
+                        <p><strong>Category:</strong> ${group.Category}</p>
+                        <p><strong>Members:</strong> ${group.member_count || 0}</p>
+                        <div style="margin-top: 10px;">
+                            <a href="view-group.html?id=${group.ID}" class="btn btn-primary btn-sm">View</a>
+                            ${actionBtn}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function viewGroup(groupId) {
+            try {
+                currentGroupId = groupId;
+                const group = await apiRequest(`/groups/${groupId}`);
+                const myRole = await apiRequest(`/groups/${groupId}/my-role`);
+                
+                let postsHtml = '';
+                let postFormHtml = '';
+                let adminSection = '';
+                
+                if (group.Privacy === 'public' || myRole.is_member) {
+                    const posts = await apiRequest(`/groups/${groupId}/posts`);
+                    displayPosts(posts);
+                    
+                    if (myRole.is_member) {
+                        postFormHtml = `
+                            <form id="postForm" style="margin-bottom: 20px;">
+                                <textarea id="post_content" placeholder="Write something..." required style="width: 100%; margin-bottom: 10px;"></textarea>
+                                <button type="submit" class="btn btn-primary btn-sm">Post</button>
+                            </form>
+                        `;
+                    }
+                } else {
+                    document.getElementById('groupPosts').innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Join this private group to see posts</p>';
+                }
+
+                if (myRole.role === 'Admin') {
+                    adminSection = `
+                        <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                            <h4 style="margin-bottom: 10px;">👑 Admin Controls</h4>
+                            <button class="btn btn-secondary btn-sm" onclick="viewJoinRequests(${groupId})">View Join Requests</button>
+                            <button class="btn btn-secondary btn-sm" onclick="viewMembers(${groupId})">Manage Members</button>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('groupDetails').innerHTML = `
+                    <h2>${group.Name} <span class="badge ${group.Privacy === 'private' ? 'badge-warning' : 'badge-success'}" style="font-size: 12px;">${group.Privacy}</span></h2>
+                    <p>${group.Description}</p>
+                    <p><strong>Category:</strong> ${group.Category}</p>
+                    <p><strong>Members:</strong> ${group.member_count}</p>
+                    <p><strong>Created by:</strong> ${group.creator_name}</p>
+                    ${myRole.is_member ? `<p><strong>Your Role:</strong> ${myRole.role}</p>` : ''}
+                    ${adminSection}
+                `;
+
+                const postFormContainer = document.querySelector('#viewGroupModal .modal-content');
+                const existingForm = document.getElementById('postForm');
+                if (existingForm) existingForm.remove();
+                
+                if (postFormHtml) {
+                    const hr = postFormContainer.querySelector('hr');
+                    hr.insertAdjacentHTML('afterend', postFormHtml);
+                    
+                    document.getElementById('postForm').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const content = document.getElementById('post_content').value;
+                        try {
+                            await apiRequest('/groups/posts', {
+                                method: 'POST',
+                                body: JSON.stringify({ group_id: currentGroupId, content })
+                            });
+                            document.getElementById('post_content').value = '';
+                            viewGroup(currentGroupId);
+                        } catch (error) {
+                            alert('Error posting: ' + error.message);
+                        }
+                    });
+                }
+
+                openModal('viewGroupModal');
+            } catch (error) {
+                alert('Error loading group: ' + error.message);
+            }
+        }
+
+        function displayPosts(posts) {
+            const container = document.getElementById('groupPosts');
+            
+            if (posts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No posts yet</p>';
+                return;
+            }
+
+            container.innerHTML = posts.map(post => `
+                <div class="card" style="margin-bottom: 15px;">
+                    <div class="flex" style="align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <img src="/uploads/${post.Profile_pic}" alt="${post.Full_name}" 
+                             style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;"
+                             onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div>
+                            <h4 style="margin: 0;"><a href="view-profile.html?id=${post.user_id}" style="color: inherit;">${post.Full_name}</a></h4>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">${getTimeAgo(post.Created_at)}</p>
+                        </div>
+                    </div>
+                    <p>${post.Content}</p>
+                    
+                    <div class="post-comments" id="comments-${post.ID}" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-color);">
+                        <div id="comments-list-${post.ID}" style="max-height: 200px; overflow-y: auto;"></div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="text" id="comment-input-${post.ID}" placeholder="Write a comment..." style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <button class="btn btn-primary btn-sm" onclick="addComment(${post.ID})">Comment</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            posts.forEach(post => loadComments(post.ID));
+        }
+
+        async function loadComments(postId) {
+            try {
+                const comments = await apiRequest(`/groups/posts/${postId}/comments`);
+                const container = document.getElementById(`comments-list-${postId}`);
+                
+                if (comments.length === 0) {
+                    container.innerHTML = '<p style="font-size: 12px; color: var(--text-secondary);">No comments yet</p>';
+                    return;
+                }
+
+                container.innerHTML = comments.map(comment => `
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+                        <img src="/uploads/${comment.Profile_pic}" alt="" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;" 
+                             onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong style="font-size: 13px;">${comment.Full_name}</strong>
+                                <span style="font-size: 11px; color: var(--text-secondary);">${getTimeAgo(comment.Created_at)}</span>
+                            </div>
+                            <p style="font-size: 13px; margin: 2px 0 0 0;">${comment.Content}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading comments:', error);
+            }
+        }
+
+        async function addComment(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            const content = input.value.trim();
+            
+            if (!content) return;
+
+            try {
+                await apiRequest('/groups/posts/comments', {
+                    method: 'POST',
+                    body: JSON.stringify({ post_id: postId, content })
+                });
+                input.value = '';
+                loadComments(postId);
+            } catch (error) {
+                alert('Error adding comment: ' + error.message);
+            }
+        }
+
+        document.getElementById('createGroupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('group_name').value,
+                description: document.getElementById('group_description').value,
+                category: document.getElementById('group_category').value,
+                privacy: document.getElementById('group_privacy').value
+            };
+
+            try {
+                await apiRequest('/groups', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
+
+                alert('Group created successfully!');
+                closeModal('createGroupModal');
+                document.getElementById('createGroupForm').reset();
+                loadMyGroups();
+            } catch (error) {
+                alert('Error creating group: ' + error.message);
+            }
+        });
+
+        async function joinGroup(groupId) {
+            try {
+                const result = await apiRequest(`/groups/${groupId}/join`, { method: 'POST' });
+                alert(result.message);
+                loadAllGroups();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function requestJoin(groupId) {
+            try {
+                const result = await apiRequest(`/groups/${groupId}/join`, { method: 'POST' });
+                alert(result.message);
+                loadAllGroups();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function viewJoinRequests(groupId) {
+            try {
+                const requests = await apiRequest(`/groups/${groupId}/join-requests`);
+                
+                if (requests.length === 0) {
+                    alert('No pending join requests');
+                    return;
+                }
+
+                let html = '<h3>Pending Join Requests</h3><div style="margin-top: 15px;">';
+                requests.forEach(req => {
+                    html += `
+                        <div class="card" style="margin-bottom: 10px;">
+                            <div class="flex-between">
+                                <div class="flex" style="gap: 10px;">
+                                    <img src="/uploads/${req.Profile_pic}" alt="" style="width: 40px; height: 40px; border-radius: 50%;" 
+                                         onerror="this.src='../assets/images/default-avatar.svg'">
+                                    <div>
+                                        <strong>${req.Full_name}</strong>
+                                        <p style="font-size: 12px; color: var(--text-secondary);">${req.Student_ID} • ${req.Department || 'No dept'}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="btn btn-primary btn-sm" onclick="handleRequest(${groupId}, ${req.ID}, 'approve')">Approve</button>
+                                    <button class="btn btn-danger btn-sm" onclick="handleRequest(${groupId}, ${req.ID}, 'reject')">Reject</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                document.getElementById('groupDetails').innerHTML = html;
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function handleRequest(groupId, requestId, action) {
+            try {
+                await apiRequest(`/groups/${groupId}/join-requests/${requestId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ action })
+                });
+                alert(action === 'approve' ? 'Request approved!' : 'Request rejected');
+                viewGroup(groupId);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function viewMembers(groupId) {
+            try {
+                const members = await apiRequest(`/groups/${groupId}/members`);
+                const myRole = await apiRequest(`/groups/${groupId}/my-role`);
+                const group = await apiRequest(`/groups/${groupId}`);
+                const isCreator = group.Created_by === getUserInfo()?.id;
+
+                let html = '<h3>Group Members</h3><div style="margin-top: 15px;">';
+                members.forEach(member => {
+                    let adminBtn = '';
+                    if (myRole.role === 'Admin' && member.role !== 'Admin') {
+                        adminBtn = `<button class="btn btn-secondary btn-sm" onclick="promoteToAdmin(${groupId}, ${member.ID})">Make Admin</button>`;
+                    } else if (isCreator && member.role === 'Admin' && member.ID !== getUserInfo()?.id) {
+                        adminBtn = `<button class="btn btn-warning btn-sm" onclick="demoteAdmin(${groupId}, ${member.ID})">Remove Admin</button>`;
+                    }
+
+                    html += `
+                        <div class="card" style="margin-bottom: 10px;">
+                            <div class="flex-between">
+                                <div class="flex" style="gap: 10px;">
+                                    <img src="/uploads/${member.Profile_pic}" alt="" style="width: 40px; height: 40px; border-radius: 50%;" 
+                                         onerror="this.src='../assets/images/default-avatar.svg'">
+                                    <div>
+                                        <strong>${member.Full_name}</strong> 
+                                        ${member.role === 'Admin' ? '<span class="badge badge-primary">Admin</span>' : ''}
+                                        <p style="font-size: 12px; color: var(--text-secondary);">${member.Student_ID} • ${member.Department || 'No dept'}</p>
+                                    </div>
+                                </div>
+                                <div>${adminBtn}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '<button class="btn btn-secondary" onclick="viewGroup(' + groupId + ')">← Back to Group</button></div>';
+
+                document.getElementById('groupDetails').innerHTML = html;
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function promoteToAdmin(groupId, userId) {
+            try {
+                await apiRequest(`/groups/${groupId}/admins`, {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId })
+                });
+                alert('User promoted to admin!');
+                viewMembers(groupId);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function demoteAdmin(groupId, userId) {
+            if (!confirm('Remove this user from admin role?')) return;
+            try {
+                await apiRequest(`/groups/${groupId}/admins`, {
+                    method: 'DELETE',
+                    body: JSON.stringify({ user_id: userId })
+                });
+                alert('Admin removed');
+                viewMembers(groupId);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        loadMyGroups();
+    </script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>My Profile</h1>
+
+        <div class="card">
+            <div class="flex-between mb-20">
+                <h2>Profile Information</h2>
+                <button class="btn btn-primary" onclick="openModal('editModal')">Edit Profile</button>
+            </div>
+
+            <div id="profileInfo" style="display: grid; gap: 20px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>Privacy Settings</h2>
+            <form id="privacyForm">
+                <div class="form-group">
+                    <label for="privacy_profile">Profile Visibility</label>
+                    <select id="privacy_profile" name="privacy_profile">
+                        <option value="public">Public</option>
+                        <option value="friends">Friends Only</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="privacy_location">Location Visibility</label>
+                    <select id="privacy_location" name="privacy_location">
+                        <option value="public">Public</option>
+                        <option value="friends">Friends Only</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="privacy_schedule">Schedule Visibility</label>
+                    <select id="privacy_schedule" name="privacy_schedule">
+                        <option value="public">Public</option>
+                        <option value="friends">Friends Only</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-secondary">Save Privacy Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editModal')">&times;</span>
+            <h2>Edit Profile</h2>
+            <form id="editProfileForm">
+                <div class="form-group">
+                    <label for="edit_full_name">Full Name</label>
+                    <input type="text" id="edit_full_name" name="full_name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_department">Department</label>
+                    <select id="edit_department" name="department" required>
+                        <option value="CSE">Computer Science & Engineering</option>
+                        <option value="EEE">Electrical & Electronic Engineering</option>
+                        <option value="BBA">Business Administration</option>
+                        <option value="Economics">Economics</option>
+                        <option value="English">English</option>
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="Physics">Physics</option>
+                        <option value="Microbiology">Microbiology</option>
+                        <option value="Biotechnology">Biotechnology</option>
+                        <option value="Architecture">Architecture</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_year">Year</label>
+                    <select id="edit_year" name="year" required>
+                        <option value="1">1st Year</option>
+                        <option value="2">2nd Year</option>
+                        <option value="3">3rd Year</option>
+                        <option value="4">4th Year</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_interests">Interests (comma-separated)</label>
+                    <textarea id="edit_interests" name="interests" placeholder="e.g., Coding, Photography, Music"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        async function loadProfile() {
+            try {
+                const profile = await apiRequest('/auth/profile');
+                displayProfile(profile);
+                populatePrivacyForm(profile);
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        function displayProfile(profile) {
+            const container = document.getElementById('profileInfo');
+            const profilePicUrl = profile.Profile_pic ? `/uploads/${profile.Profile_pic}` : '../assets/images/default-avatar.svg';
+            
+            let availabilityHtml = '';
+            if (profile.availability) {
+                const status = profile.availability.current_status || 'free';
+                const isOverride = profile.availability.is_override || profile.availability.status_override;
+                const statusColors = {
+                    'free': { bg: '#d4edda', color: '#28a745', icon: '✓' },
+                    'busy': { bg: '#f8d7da', color: '#dc3545', icon: '✗' },
+                    'off_campus': { bg: '#e2e3e5', color: '#6c757d', icon: '○' }
+                };
+                const statusInfo = statusColors[status] || statusColors['free'];
+                availabilityHtml = `
+                    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: ${statusInfo.bg}; border-radius: 20px; margin-left: 10px;">
+                        <span style="color: ${statusInfo.color}; font-weight: bold;">${statusInfo.icon} ${status === 'off_campus' ? 'Off Campus' : status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                        ${isOverride ? '<span style="font-size: 11px; color: #666;">(manual)</span>' : ''}
+                    </div>
+                `;
+            }
+
+            let checkInHtml = '<p style="color: var(--text-secondary);">Not checked in</p>';
+            if (profile.current_checkin) {
+                const checkin = profile.current_checkin;
+                const checkinTime = new Date(checkin.Created_at);
+                const timeAgo = getTimeAgo(checkin.Created_at);
+                checkInHtml = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">📍</span>
+                        <div>
+                            <strong>${checkin.location_name}</strong>
+                            ${checkin.room_number ? `<span style="color: var(--text-secondary);"> - Room ${checkin.room_number}</span>` : ''}
+                            <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+                                ${checkin.Status === 'active' ? 'Currently here' : 'Was here'} • ${timeAgo}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="${profilePicUrl}" alt="${profile.Full_name}" 
+                         id="profilePicPreview"
+                         style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-color);"
+                         onerror="this.src='../assets/images/default-avatar.svg'">
+                    <div style="margin-top: 15px;">
+                        <input type="file" id="profilePicInput" accept="image/*" style="display: none;" onchange="uploadProfilePic()">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('profilePicInput').click()">
+                            Change Photo
+                        </button>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <span style="font-weight: 600;">Availability</span>
+                        ${availabilityHtml}
+                        <a href="schedule.html" class="btn btn-outline btn-sm">Manage</a>
+                    </div>
+                    <div>
+                        <span style="font-weight: 600; display: block; margin-bottom: 8px;">Current Location</span>
+                        ${checkInHtml}
+                        <a href="location.html" class="btn btn-outline btn-sm" style="margin-top: 10px;">Check In</a>
+                    </div>
+                </div>
+
+                <div>
+                    <p><strong>Student ID:</strong> ${profile.Student_ID}</p>
+                    <p><strong>Name:</strong> ${profile.Full_name}</p>
+                    <p><strong>Email:</strong> ${profile.Email}</p>
+                    <p><strong>Department:</strong> ${profile.Department || 'Not set'}</p>
+                    <p><strong>Year:</strong> ${profile.Year ? profile.Year + ' Year' : 'Not set'}</p>
+                    <p><strong>Interests:</strong> ${profile.Interests || 'Not set'}</p>
+                    <p><strong>Online Status:</strong> <span class="status-badge status-${profile.Status === 'online' ? 'online' : 'offline'}">${profile.Status}</span></p>
+                </div>
+            `;
+
+            document.getElementById('edit_full_name').value = profile.Full_name;
+            document.getElementById('edit_department').value = profile.Department || '';
+            document.getElementById('edit_year').value = profile.Year || '';
+            document.getElementById('edit_interests').value = profile.Interests || '';
+        }
+
+        async function uploadProfilePic() {
+            const fileInput = document.getElementById('profilePicInput');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('profile_pic', file);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/profile/picture`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Upload failed');
+                }
+
+                alert('Profile picture updated!');
+                loadProfile();
+            } catch (error) {
+                alert('Error uploading picture: ' + error.message);
+            }
+        }
+
+        function populatePrivacyForm(profile) {
+            document.getElementById('privacy_profile').value = profile.Privacy_profile || 'friends';
+            document.getElementById('privacy_location').value = profile.Privacy_location || 'friends';
+            document.getElementById('privacy_schedule').value = profile.Privacy_schedule || 'friends';
+        }
+
+        document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                full_name: document.getElementById('edit_full_name').value,
+                department: document.getElementById('edit_department').value,
+                year: parseInt(document.getElementById('edit_year').value),
+                interests: document.getElementById('edit_interests').value
+            };
+
+            try {
+                await apiRequest('/auth/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify(formData)
+                });
+
+                alert('Profile updated successfully!');
+                closeModal('editModal');
+                loadProfile();
+                
+                const user = getUserInfo();
+                user.full_name = formData.full_name;
+                user.department = formData.department;
+                user.year = formData.year;
+                setUserInfo(user);
+            } catch (error) {
+                alert('Error updating profile: ' + error.message);
+            }
+        });
+
+        document.getElementById('privacyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                privacy_profile: document.getElementById('privacy_profile').value,
+                privacy_location: document.getElementById('privacy_location').value,
+                privacy_schedule: document.getElementById('privacy_schedule').value
+            };
+
+            try {
+                await apiRequest('/auth/privacy', {
+                    method: 'PUT',
+                    body: JSON.stringify(formData)
+                });
+
+                alert('Privacy settings updated!');
+            } catch (error) {
+                alert('Error updating privacy settings: ' + error.message);
+            }
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>

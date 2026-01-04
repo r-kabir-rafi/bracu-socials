@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>Events</h1>
+
+        <div class="card">
+            <div class="flex-between mb-20">
+                <input type="text" id="searchQuery" placeholder="Search events..." style="flex: 1; margin-right: 10px;">
+                <button class="btn btn-primary" onclick="openModal('createEventModal')">Create Event</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="tab-container">
+                <button class="tab-btn active" onclick="switchTab('my-events')">My Events</button>
+                <button class="tab-btn" onclick="switchTab('all-events')">All Events</button>
+            </div>
+
+            <div id="myEventsTab" class="tab-content">
+                <div id="myEventsList" class="grid grid-2"></div>
+            </div>
+
+            <div id="allEventsTab" class="tab-content" style="display: none;">
+                <div id="allEventsList" class="grid grid-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="createEventModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('createEventModal')">&times;</span>
+            <h2>Create Event</h2>
+            <form id="createEventForm">
+                <div class="form-group">
+                    <label for="event_name">Event Name</label>
+                    <input type="text" id="event_name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="event_description">Description</label>
+                    <textarea id="event_description" name="description" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="event_location">Location</label>
+                    <input type="text" id="event_location" name="location" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="event_time">Event Date & Time</label>
+                    <input type="datetime-local" id="event_time" name="event_time" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="max_participant">Max Participants (optional)</label>
+                    <input type="number" id="max_participant" name="max_participant" min="1">
+                </div>
+
+                <button type="submit" class="btn btn-primary">Create Event</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="viewEventModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('viewEventModal')">&times;</span>
+            <div id="eventDetails"></div>
+            <hr style="margin: 20px 0;">
+            <h3>Participants</h3>
+            <div id="eventParticipants"></div>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        let currentTab = 'my-events';
+        let currentEventId = null;
+
+        let searchTimeout;
+        document.getElementById('searchQuery').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            
+            if (query.length < 2) {
+                if (currentTab === 'all-events') loadAllEvents();
+                return;
+            }
+
+            searchTimeout = setTimeout(() => searchEvents(query), 300);
+        });
+
+        async function searchEvents(query) {
+            try {
+                const events = await apiRequest(`/events/search?query=${encodeURIComponent(query)}`);
+                displayEvents(events, 'allEventsList');
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('myEventsTab').style.display = tab === 'my-events' ? 'block' : 'none';
+            document.getElementById('allEventsTab').style.display = tab === 'all-events' ? 'block' : 'none';
+
+            loadTabContent();
+        }
+
+        async function loadTabContent() {
+            if (currentTab === 'my-events') {
+                loadMyEvents();
+            } else {
+                loadAllEvents();
+            }
+        }
+
+        async function loadMyEvents() {
+            try {
+                const events = await apiRequest('/events/my-events');
+                displayEvents(events, 'myEventsList');
+            } catch (error) {
+                console.error('Error loading events:', error);
+            }
+        }
+
+        async function loadAllEvents() {
+            try {
+                const events = await apiRequest('/events');
+                displayEvents(events, 'allEventsList');
+            } catch (error) {
+                console.error('Error loading events:', error);
+            }
+        }
+
+        function displayEvents(events, containerId) {
+            const container = document.getElementById(containerId);
+            
+            if (events.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No events found</p>';
+                return;
+            }
+
+            container.innerHTML = events.map(event => `
+                <div class="card">
+                    <h3>${event.Name}</h3>
+                    <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">${event.description || 'No description'}</p>
+                    <p><strong>📍 Location:</strong> ${event.location}</p>
+                    <p><strong>🕐 Time:</strong> ${formatDate(event.event_time)}</p>
+                    <p><strong>👥 Participants:</strong> ${event.participant_count || 0}${event.max_participant ? ' / ' + event.max_participant : ''}</p>
+                    <p><strong>Created by:</strong> ${event.creator_name}</p>
+                    <div style="margin-top: 10px;">
+                        <a href="view-event.html?id=${event.ID}" class="btn btn-primary btn-sm">View Details</a>
+                        ${containerId === 'allEventsList' ? `<button class="btn btn-secondary btn-sm" onclick="rsvpEvent(${event.ID}, 'accepted')">RSVP</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function viewEvent(eventId) {
+            try {
+                currentEventId = eventId;
+                const event = await apiRequest(`/events/${eventId}`);
+                const participants = await apiRequest(`/events/${eventId}/participants`);
+                
+                document.getElementById('eventDetails').innerHTML = `
+                    <h2>${event.Name}</h2>
+                    <p>${event.description}</p>
+                    <p><strong>📍 Location:</strong> ${event.location}</p>
+                    <p><strong>🕐 Time:</strong> ${formatDate(event.event_time)}</p>
+                    <p><strong>👥 Participants:</strong> ${event.participant_count}${event.max_participant ? ' / ' + event.max_participant : ''}</p>
+                    <p><strong>Created by:</strong> ${event.creator_name}</p>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-secondary" onclick="rsvpEvent(${event.ID}, 'accepted')">Accept</button>
+                        <button class="btn btn-outline" onclick="rsvpEvent(${event.ID}, 'maybe')">Maybe</button>
+                        <button class="btn btn-danger" onclick="rsvpEvent(${event.ID}, 'declined')">Decline</button>
+                    </div>
+                `;
+
+                displayParticipants(participants);
+                openModal('viewEventModal');
+            } catch (error) {
+                alert('Error loading event: ' + error.message);
+            }
+        }
+
+        function displayParticipants(participants) {
+            const container = document.getElementById('eventParticipants');
+            
+            if (participants.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No participants yet</p>';
+                return;
+            }
+
+            container.innerHTML = participants.map(participant => `
+                <div class="user-card" style="margin-bottom: 10px;">
+                    <img src="/uploads/${participant.Profile_pic}" alt="${participant.Full_name}" onerror="this.src='../assets/images/default-avatar.svg'">
+                    <div class="user-info-card">
+                        <h4 style="margin: 0;">${participant.Full_name}</h4>
+                        <p style="font-size: 14px; margin: 0;">${participant.Department} - Year ${participant.Year}</p>
+                        <span class="status-badge ${participant.rsvp_status === 'accepted' ? 'status-online' : 'status-offline'}">
+                            ${participant.rsvp_status}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('createEventForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('event_name').value,
+                description: document.getElementById('event_description').value,
+                location: document.getElementById('event_location').value,
+                event_time: document.getElementById('event_time').value,
+                max_participant: document.getElementById('max_participant').value ? parseInt(document.getElementById('max_participant').value) : null
+            };
+
+            try {
+                await apiRequest('/events', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
+
+                alert('Event created successfully!');
+                closeModal('createEventModal');
+                document.getElementById('createEventForm').reset();
+                loadMyEvents();
+            } catch (error) {
+                alert('Error creating event: ' + error.message);
+            }
+        });
+
+        async function rsvpEvent(eventId, status) {
+            try {
+                await apiRequest(`/events/${eventId}/rsvp`, {
+                    method: 'POST',
+                    body: JSON.stringify({ rsvp_status: status })
+                });
+
+                alert('RSVP updated!');
+                closeModal('viewEventModal');
+                loadTabContent();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        loadMyEvents();
+    </script>
+</body>
+</html>

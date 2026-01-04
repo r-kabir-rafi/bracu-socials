@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .register-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 40px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow-hover);
+        }
+        
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .register-header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <h1>BRACu Socials</h1>
+            <p>Create your account</p>
+        </div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="student_id">Student ID</label>
+                <input type="text" id="student_id" name="student_id" placeholder="e.g., 12345678" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">University Email</label>
+                <input type="email" id="email" name="email" placeholder="your.email@g.bracu.ac.bd" required>
+                <small style="color: var(--text-secondary);">Must be a valid BRAC University email</small>
+            </div>
+
+            <div class="form-group">
+                <label for="full_name">Full Name</label>
+                <input type="text" id="full_name" name="full_name" placeholder="Rafsun Mahdin Ananta" required>
+            </div>
+
+            <div class="form-group">
+                <label for="department">Department</label>
+                <select id="department" name="department" required>
+                    <option value="">Select Department</option>
+                    <option value="CSE">Computer Science & Engineering</option>
+                    <option value="EEE">Electrical & Electronic Engineering</option>
+                    <option value="BBA">Business Administration</option>
+                    <option value="Economics">Economics</option>
+                    <option value="English">English</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Physics">Physics</option>
+                    <option value="Microbiology">Microbiology</option>
+                    <option value="Biotechnology">Biotechnology</option>
+                    <option value="Architecture">Architecture</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="year">Year</label>
+                <select id="year" name="year" required>
+                    <option value="">Select Year</option>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="At least 6 characters" required minlength="6">
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
+            </div>
+
+            <div id="error-message" class="error-message" style="display: none;"></div>
+            <div id="success-message" class="success-message" style="display: none;"></div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">Register</button>
+        </form>
+
+        <p style="text-align: center; margin-top: 20px;">
+            Already have an account? <a href="login.html" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">Login here</a>
+        </p>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (isAuthenticated()) {
+            window.location.href = 'dashboard.html';
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+
+            if (password !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+
+            const formData = {
+                student_id: document.getElementById('student_id').value,
+                email: document.getElementById('email').value,
+                full_name: document.getElementById('full_name').value,
+                department: document.getElementById('department').value,
+                year: parseInt(document.getElementById('year').value),
+                password: password
+            };
+
+            try {
+                await apiRequest('/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
+
+                showSuccess('Registration successful! Redirecting to login...');
+
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 2000);
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+    </script>
+</body>
+</html>

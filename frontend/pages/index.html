@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRACu Socials - Connect with Your University Community</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .hero {
+            background: linear-gradient(135deg, #1a73e8 0%, #34a853 100%);
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .hero p {
+            font-size: 20px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .features {
+            padding: 60px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .features h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 50px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+        
+        .feature-card {
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card h3 {
+            font-size: 22px;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .cta {
+            background-color: var(--bg-light);
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .cta h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="index.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="login.html">Login</a></li>
+                    <li><a href="register.html">Register</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="hero">
+        <h1>Welcome to BRACu Socials</h1>
+        <p>Connect, collaborate, and engage with your university community</p>
+        <div class="cta-buttons">
+            <a href="register.html" class="btn btn-secondary" style="padding: 15px 40px; font-size: 18px;">Get Started</a>
+            <a href="login.html" class="btn btn-outline" style="padding: 15px 40px; font-size: 18px; background: white; color: var(--primary-color);">Sign In</a>
+        </div>
+    </div>
+
+    <div class="features">
+        <h2>Core Features</h2>
+        <div class="feature-grid">
+            <div class="feature-card card">
+                <div class="feature-icon">👥</div>
+                <h3>Friend Network</h3>
+                <p>Connect with students, send friend requests, and build your campus network</p>
+            </div>
+            
+            <div class="feature-card card">
+                <div class="feature-icon">📅</div>
+                <h3>Schedule Management</h3>
+                <p>Manage your class schedule and find common free time with friends</p>
+            </div>
+            
+            <div class="feature-card card">
+                <div class="feature-icon">📍</div>
+                <h3>Live Location</h3>
+                <p>Check-in at campus locations and see where your friends are</p>
+            </div>
+            
+            <div class="feature-card card">
+                <div class="feature-icon">👨‍👩‍👧‍👦</div>
+                <h3>Interest Groups</h3>
+                <p>Join groups based on your hobbies and interests</p>
+            </div>
+            
+            <div class="feature-card card">
+                <div class="feature-icon">🎉</div>
+                <h3>Events</h3>
+                <p>Create and join campus events, study sessions, and hangouts</p>
+            </div>
+            
+            <div class="feature-card card">
+                <div class="feature-icon">🤝</div>
+                <h3>Smart Matching</h3>
+                <p>Get friend suggestions based on common interests and schedule</p>
+            </div>
+            
+            <div class="feature-card card">
+                <div class="feature-icon">🔔</div>
+                <h3>Real-time Notifications</h3>
+                <p>Stay updated with friend requests, events, and messages</p>
+            </div>
+            
+            <div class="feature-card card">
+                <div class="feature-icon">🔒</div>
+                <h3>Privacy Controls</h3>
+                <p>Control who can see your profile, location, and schedule</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="cta">
+        <h2>Ready to Get Started?</h2>
+        <p style="font-size: 18px; margin-bottom: 30px; color: var(--text-secondary);">Join BRACu Socials today and connect with your university community</p>
+        <a href="register.html" class="btn btn-primary" style="padding: 15px 40px; font-size: 18px;">Create Your Account</a>
+    </div>
+
+    <footer style="background-color: var(--text-color); color: white; padding: 30px 20px; text-align: center; margin-top: 60px;">
+        <p>&copy; <span id="current-year"></span> BRACu Socials. All rights reserved.</p>
+        <p style="margin-top: 10px; opacity: 0.8;">A social networking platform for BRAC University students</p>
+    </footer>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+        
+        if (isAuthenticated()) {
+            window.location.href = 'dashboard.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Profile - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .profile-header {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 8px 8px 0 0;
+            margin: -20px -20px 20px -20px;
+        }
+
+        .profile-header h1 {
+            margin: 0 0 10px 0;
+            color: white;
+        }
+
+        .profile-header .student-id {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .profile-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .profile-info-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .profile-info-grid p {
+            margin: 0;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .profile-info-grid p:last-child {
+            border-bottom: none;
+        }
+
+        .private-notice {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .private-notice i {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .mutual-friends {
+            background: var(--background-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.online {
+            background-color: var(--success-color);
+        }
+
+        .status-indicator.offline {
+            background-color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card" id="profileCard">
+            <div id="profileContent">
+                <p style="text-align: center;">Loading profile...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id');
+
+        if (!userId) {
+            document.getElementById('profileContent').innerHTML = `
+                <div class="private-notice">
+                    <p>No user specified</p>
+                    <a href="friends.html" class="btn btn-primary">Go to Friends</a>
+                </div>
+            `;
+        } else {
+            loadUserProfile(userId);
+        }
+
+        async function loadUserProfile(userId) {
+            try {
+                const profile = await apiRequest(`/friends/profile/${userId}`);
+                displayProfile(profile);
+            } catch (error) {
+                document.getElementById('profileContent').innerHTML = `
+                    <div class="private-notice">
+                        <p>Error loading profile: ${error.message}</p>
+                        <a href="friends.html" class="btn btn-primary">Go to Friends</a>
+                    </div>
+                `;
+            }
+        }
+
+        function displayProfile(profile) {
+            const container = document.getElementById('profileContent');
+
+            if (profile.is_self) {
+                window.location.href = 'profile.html';
+                return;
+            }
+
+            let actionsHtml = '';
+            if (profile.is_friend) {
+                actionsHtml = `
+                    <button class="btn btn-danger" onclick="removeFriend(${profile.id})">Remove Friend</button>
+                    <button class="btn btn-secondary" onclick="blockUser(${profile.id})">Block</button>
+                `;
+            } else if (profile.friend_request_status === 'sent') {
+                actionsHtml = `
+                    <button class="btn btn-secondary" disabled>Request Sent</button>
+                    <button class="btn btn-danger btn-sm" onclick="blockUser(${profile.id})">Block</button>
+                `;
+            } else if (profile.friend_request_status === 'received') {
+                actionsHtml = `
+                    <button class="btn btn-primary" onclick="acceptRequest(${profile.friend_request_id})">Accept Request</button>
+                    <button class="btn btn-secondary" onclick="declineRequest(${profile.friend_request_id})">Decline</button>
+                    <button class="btn btn-danger btn-sm" onclick="blockUser(${profile.id})">Block</button>
+                `;
+            } else {
+                actionsHtml = `
+                    <button class="btn btn-primary" onclick="sendFriendRequest(${profile.id})">Add Friend</button>
+                    <button class="btn btn-danger btn-sm" onclick="blockUser(${profile.id})">Block</button>
+                `;
+            }
+
+            let profileInfoHtml = '';
+            if (profile.private) {
+                profileInfoHtml = `
+                    <div class="private-notice">
+                        <p>🔒 ${profile.message}</p>
+                        <p style="font-size: 14px; margin-top: 10px;">Send a friend request to see more details</p>
+                    </div>
+                `;
+            } else {
+                let statusInfoHtml = '';
+                
+                if (profile.can_view_schedule && profile.availability) {
+                    const status = profile.availability.current_status || 'free';
+                    const isOverride = profile.availability.is_override || profile.availability.status_override;
+                    const statusColors = {
+                        'free': { bg: '#d4edda', color: '#28a745', text: '✓ Free' },
+                        'busy': { bg: '#f8d7da', color: '#dc3545', text: '✗ Busy' },
+                        'off_campus': { bg: '#e2e3e5', color: '#6c757d', text: '○ Off Campus' }
+                    };
+                    const statusInfo = statusColors[status] || statusColors['free'];
+                    statusInfoHtml += `
+                        <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: ${statusInfo.bg}; border-radius: 20px; margin-right: 10px;">
+                            <span style="color: ${statusInfo.color}; font-weight: bold;">${statusInfo.text}</span>
+                            ${isOverride ? '<span style="font-size: 11px; color: #666;">(manual)</span>' : ''}
+                        </div>
+                    `;
+                }
+
+                let checkInHtml = '';
+                if (profile.can_view_location && profile.current_checkin) {
+                    const checkin = profile.current_checkin;
+                    checkInHtml = `
+                        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-top: 15px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 20px;">📍</span>
+                                <div>
+                                    <strong>${checkin.location_name}</strong>
+                                    ${checkin.room_number ? `<span style="color: var(--text-secondary);"> - Room ${checkin.room_number}</span>` : ''}
+                                    <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+                                        ${checkin.Status === 'active' ? 'Currently here' : 'Was here'} • ${getTimeAgo(checkin.Created_at)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                profileInfoHtml = `
+                    <div class="profile-info-grid">
+                        <p><strong>Department:</strong> ${profile.department || 'Not set'}</p>
+                        <p><strong>Year:</strong> ${profile.year ? profile.year + ' Year' : 'Not set'}</p>
+                        <p><strong>Interests:</strong> ${profile.interests || 'Not set'}</p>
+                        <p><strong>Online Status:</strong> 
+                            <span class="status-indicator ${profile.status === 'online' ? 'online' : 'offline'}"></span>
+                            ${profile.status || 'offline'}
+                            ${statusInfoHtml}
+                        </p>
+                        ${checkInHtml}
+                    </div>
+                `;
+
+                if (profile.can_view_schedule) {
+                    profileInfoHtml += `
+                        <div class="mutual-friends">
+                            <a href="schedule.html?view=${profile.id}" style="color: var(--primary-color);">📅 View Schedule</a>
+                        </div>
+                    `;
+                }
+
+                if (profile.can_view_location && profile.is_friend) {
+                    profileInfoHtml += `
+                        <div class="mutual-friends">
+                            <a href="location.html" style="color: var(--primary-color);">📍 View on Map</a>
+                        </div>
+                    `;
+                }
+            }
+
+            let mutualFriendsHtml = '';
+            if (profile.mutual_friends_count > 0) {
+                mutualFriendsHtml = `
+                    <div class="mutual-friends">
+                        <strong>${profile.mutual_friends_count}</strong> mutual friend${profile.mutual_friends_count > 1 ? 's' : ''}
+                    </div>
+                `;
+            }
+
+            const profilePicUrl = profile.profile_pic ? `/uploads/${profile.profile_pic}` : '../assets/images/default-avatar.svg';
+
+            container.innerHTML = `
+                <div class="profile-header">
+                    <img src="${profilePicUrl}" alt="${profile.full_name}" 
+                         style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid white; margin-bottom: 15px;"
+                         onerror="this.src='../assets/images/default-avatar.svg'">
+                    <h1>${profile.full_name}</h1>
+                    <p class="student-id">${profile.student_id}</p>
+                    <div class="profile-actions">
+                        ${actionsHtml}
+                    </div>
+                </div>
+                ${profileInfoHtml}
+                ${mutualFriendsHtml}
+            `;
+        }
+
+        async function sendFriendRequest(userId) {
+            try {
+                await apiRequest('/friends/request', {
+                    method: 'POST',
+                    body: JSON.stringify({ receiver_id: userId })
+                });
+                alert('Friend request sent!');
+                loadUserProfile(userId);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function acceptRequest(requestId) {
+            try {
+                await apiRequest(`/friends/request/${requestId}/accept`, { method: 'POST' });
+                alert('Friend request accepted!');
+                loadUserProfile(userId);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function declineRequest(requestId) {
+            try {
+                await apiRequest(`/friends/request/${requestId}/decline`, { method: 'POST' });
+                alert('Friend request declined');
+                loadUserProfile(userId);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function removeFriend(friendId) {
+            if (!confirm('Are you sure you want to remove this friend?')) return;
+            
+            try {
+                await apiRequest(`/friends/${friendId}`, { method: 'DELETE' });
+                alert('Friend removed');
+                loadUserProfile(userId);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function blockUser(blockUserId) {
+            if (!confirm('Are you sure you want to block this user? They won\'t be able to see your profile or send you requests.')) return;
+            
+            try {
+                await apiRequest('/friends/block', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: blockUserId })
+                });
+                alert('User blocked');
+                window.location.href = 'friends.html';
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+    </script>
+</body>
+</html>

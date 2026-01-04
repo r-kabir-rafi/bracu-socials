@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="flex-between mb-20">
+            <h1>Notifications</h1>
+            <button class="btn btn-outline" onclick="markAllAsRead()">Mark All as Read</button>
+        </div>
+
+        <div class="card">
+            <div id="notificationsList"></div>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        async function loadNotifications() {
+            const container = document.getElementById('notificationsList');
+            showLoading('notificationsList');
+            
+            try {
+                const notifications = await apiRequest('/notifications');
+                displayNotifications(notifications);
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+                showEmptyState('notificationsList', 'Failed to load notifications', '❌');
+            }
+        }
+
+        function displayNotifications(notifications) {
+            const container = document.getElementById('notificationsList');
+            
+            if (notifications.length === 0) {
+                showEmptyState('notificationsList', 'No notifications yet', '🔔');
+                return;
+            }
+
+            container.innerHTML = notifications.map(notif => `
+                <div class="notification-item ${notif.Is_read ? '' : 'unread'}" 
+                     onclick="markAsRead(${notif.ID})"
+                     style="padding: 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; ${!notif.Is_read ? 'background-color: #f0f7ff;' : ''}">
+                    <div class="flex-between">
+                        <div>
+                            <p style="margin-bottom: 5px;">${sanitizeHTML(notif.Message)}</p>
+                            <p style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(notif.Created_at)}</p>
+                        </div>
+                        ${!notif.Is_read ? '<span class="status-badge status-online">New</span>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function markAsRead(notificationId) {
+            try {
+                await apiRequest(`/notifications/${notificationId}/read`, { method: 'PUT' });
+                loadNotifications();
+                fetchNotificationCount();
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+            }
+        }
+
+        async function markAllAsRead() {
+            
+            try {
+                const notifications = await apiRequest('/notifications');
+                const unreadNotifications = notifications.filter(n => !n.Is_read);
+                
+                if (unreadNotifications.length === 0) {
+                    showToast('No unread notifications', 'info');
+                    return;
+                }
+                
+                await Promise.all(
+                    unreadNotifications.map(n => 
+                        apiRequest(`/notifications/${n.ID}/read`, { method: 'PUT' })
+                    )
+                );
+                
+                showToast('All notifications marked as read', 'success');
+                loadNotifications();
+                fetchNotificationCount();
+            } catch (error) {
+                console.error('Error marking all notifications as read:', error);
+                showToast('Failed to mark notifications as read', 'error');
+            }
+        }
+
+        loadNotifications();
+    </script>
+</body>
+</html>

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .status-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status-free { background: linear-gradient(135deg, #d4edda, #c3e6cb); border: 1px solid #28a745; }
+        .status-busy { background: linear-gradient(135deg, #f8d7da, #f5c6cb); border: 1px solid #dc3545; }
+        .status-off_campus { background: linear-gradient(135deg, #e2e3e5, #d6d8db); border: 1px solid #6c757d; }
+        
+        .status-indicator {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .status-free .status-indicator { color: #28a745; }
+        .status-busy .status-indicator { color: #dc3545; }
+        .status-off_campus .status-indicator { color: #6c757d; }
+
+        .status-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .free-time-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .free-slot {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .free-slot .time {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+
+        .day-tabs {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .day-tab {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .day-tab:hover { background: var(--background-color); }
+        .day-tab.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+
+        .campus-hours {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 id="pageTitle">Class Schedule</h1>
+
+
+        <div id="viewingBanner" class="card" style="display: none; background: linear-gradient(135deg, #e3f2fd, #bbdefb); margin-bottom: 20px;">
+            <div class="flex-between">
+                <div>
+                    <p style="margin: 0; font-size: 14px; color: #1565c0;">👁️ Viewing Schedule of</p>
+                    <h3 id="viewingUserName" style="margin: 5px 0 0 0; color: #0d47a1;">Loading...</h3>
+                </div>
+                <a href="schedule.html" class="btn btn-secondary">Back to My Schedule</a>
+            </div>
+        </div>
+
+
+        <div id="statusCard" class="status-card status-free">
+            <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.8;">Current Status</p>
+                <p class="status-indicator" id="statusText">Loading...</p>
+                <p id="statusNote" style="margin: 5px 0 0 0; font-size: 12px;"></p>
+            </div>
+            <div class="status-controls">
+                <select id="statusOverride">
+                    <option value="">Auto (based on schedule)</option>
+                    <option value="free">Set as Free</option>
+                    <option value="busy">Set as Busy</option>
+                </select>
+                <select id="overrideDuration">
+                    <option value="30">30 mins</option>
+                    <option value="60">1 hour</option>
+                    <option value="120">2 hours</option>
+                    <option value="240">4 hours</option>
+                    <option value="">Until cleared</option>
+                </select>
+                <button class="btn btn-sm btn-secondary" onclick="updateStatus()">Set</button>
+            </div>
+        </div>
+
+
+        <div class="card">
+            <h2>📅 Free Time Today</h2>
+            <p class="campus-hours">Campus Hours: 8:00 AM - 5:00 PM</p>
+            
+            <div class="day-tabs">
+                <button class="day-tab" data-day="Mon">Mon</button>
+                <button class="day-tab" data-day="Tue">Tue</button>
+                <button class="day-tab" data-day="Wed">Wed</button>
+                <button class="day-tab" data-day="Thu">Thu</button>
+                <button class="day-tab" data-day="Fri">Fri</button>
+                <button class="day-tab" data-day="Sat">Sat</button>
+                <button class="day-tab" data-day="Sun">Sun</button>
+            </div>
+
+            <div id="freeTimeSlots" class="free-time-grid">
+                <p>Select a day to see free time slots</p>
+            </div>
+        </div>
+
+
+        <div class="card">
+            <div class="flex-between mb-20">
+                <h2>My Classes</h2>
+                <button class="btn btn-primary" onclick="openModal('addClassModal')">Add Class</button>
+            </div>
+            <div id="scheduleList"></div>
+        </div>
+    </div>
+
+
+    <div id="addClassModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addClassModal')">&times;</span>
+            <h2>Add Class</h2>
+            <form id="addClassForm">
+                <div class="form-group">
+                    <label for="course_code">Course Code</label>
+                    <input type="text" id="course_code" name="course_code" placeholder="e.g., CSE110" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="class_days">Class Days</label>
+                    <input type="text" id="class_days" name="class_days" placeholder="e.g., Mon, Wed, Fri" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <input type="text" id="location" name="location" placeholder="e.g., UB 40201" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="start_time">Start Time</label>
+                    <input type="time" id="start_time" name="start_time" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="end_time">End Time</label>
+                    <input type="time" id="end_time" name="end_time" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Add Class</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const today = days[new Date().getDay()];
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewUserId = urlParams.get('view');
+        let isViewingOther = !!viewUserId;
+
+        if (isViewingOther) {
+            initViewOtherSchedule(viewUserId);
+        } else {
+            initOwnSchedule();
+        }
+
+        async function initViewOtherSchedule(userId) {
+            document.getElementById('statusCard').style.display = 'none';
+            document.querySelector('.btn.btn-primary[onclick*="addClassModal"]')?.parentElement?.querySelector('.btn')?.remove();
+            document.getElementById('viewingBanner').style.display = 'block';
+            document.getElementById('pageTitle').textContent = "Friend's Schedule";
+
+            try {
+                const profile = await apiRequest(`/friends/profile/${userId}`);
+                document.getElementById('viewingUserName').textContent = profile.full_name;
+
+                if (!profile.can_view_schedule) {
+                    document.getElementById('scheduleList').innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            <p style="font-size: 48px; margin-bottom: 15px;">🔒</p>
+                            <p>This user's schedule is private</p>
+                        </div>
+                    `;
+                    document.querySelector('.card:has(#freeTimeSlots)')?.remove();
+                    return;
+                }
+
+                const schedule = await apiRequest(`/schedule/user/${userId}`);
+                displaySchedule(schedule, true);
+
+                const status = await apiRequest(`/schedule/status/${userId}`);
+                document.getElementById('statusCard').style.display = 'flex';
+                document.querySelector('.status-controls').style.display = 'none';
+                updateStatusUI(status);
+
+            } catch (error) {
+                document.getElementById('viewingUserName').textContent = 'Error loading';
+                document.getElementById('scheduleList').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--danger);">
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function initOwnSchedule() {
+            loadStatus();
+            loadSchedule();
+            
+
+            const todayTab = document.querySelector(`.day-tab[data-day="${today}"]`);
+            if (todayTab) {
+                todayTab.classList.add('active');
+                loadFreeTime(today);
+            }
+        }
+
+
+        async function loadStatus() {
+            try {
+                const data = await apiRequest('/schedule/status');
+                updateStatusUI(data);
+            } catch (error) {
+                console.error('Error loading status:', error);
+            }
+        }
+
+        function updateStatusUI(data) {
+            const card = document.getElementById('statusCard');
+            const text = document.getElementById('statusText');
+            const note = document.getElementById('statusNote');
+
+            card.className = 'status-card status-' + data.status;
+            
+            const statusLabels = {
+                'free': '✓ Free',
+                'busy': '✗ Busy',
+                'off_campus': '○ Off Campus'
+            };
+            
+            text.textContent = statusLabels[data.status] || data.status;
+            
+            if (data.is_override) {
+                note.textContent = '(Manually set)';
+            } else if (data.status === 'off_campus') {
+                note.textContent = 'Outside campus hours (8AM-5PM)';
+            } else {
+                note.textContent = 'Based on your class schedule';
+            }
+        }
+
+        async function updateStatus() {
+            const status = document.getElementById('statusOverride').value;
+            const duration = document.getElementById('overrideDuration').value;
+
+            if (!status) {
+
+                try {
+                    await apiRequest('/schedule/status/override', { method: 'DELETE' });
+                    alert('Status reset to automatic (schedule-based)');
+                    loadStatus();
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+                return;
+            }
+
+            try {
+                await apiRequest('/schedule/status', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        status: status,
+                        duration_minutes: duration ? parseInt(duration) : null
+                    })
+                });
+                alert('Status updated!');
+                loadStatus();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+
+        async function loadFreeTime(day) {
+            try {
+                const data = await apiRequest(`/schedule/free-time/${day}`);
+                displayFreeTime(data);
+            } catch (error) {
+                console.error('Error loading free time:', error);
+            }
+        }
+
+        function displayFreeTime(data) {
+            const container = document.getElementById('freeTimeSlots');
+
+            if (data.free_slots.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary);">No free time slots - fully booked!</p>';
+                return;
+            }
+
+            container.innerHTML = data.free_slots.map(slot => `
+                <div class="free-slot">
+                    <div class="time">${formatTime(slot.start)} - ${formatTime(slot.end)}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">
+                        ${calculateDuration(slot.start, slot.end)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function calculateDuration(start, end) {
+            const [sh, sm] = start.split(':').map(Number);
+            const [eh, em] = end.split(':').map(Number);
+            const mins = (eh * 60 + em) - (sh * 60 + sm);
+            const hours = Math.floor(mins / 60);
+            const remainMins = mins % 60;
+            
+            if (hours > 0 && remainMins > 0) {
+                return `${hours}h ${remainMins}m`;
+            } else if (hours > 0) {
+                return `${hours} hour${hours > 1 ? 's' : ''}`;
+            } else {
+                return `${remainMins} mins`;
+            }
+        }
+
+
+        document.querySelectorAll('.day-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                loadFreeTime(this.dataset.day);
+            });
+        });
+
+        async function loadSchedule() {
+            try {
+                const schedule = await apiRequest('/schedule');
+                displaySchedule(schedule);
+            } catch (error) {
+                console.error('Error loading schedule:', error);
+            }
+        }
+
+        function displaySchedule(schedule, readOnly = false) {
+            const container = document.getElementById('scheduleList');
+            
+            if (schedule.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No classes in schedule.</p>';
+                return;
+            }
+            
+            container.innerHTML = schedule.map(item => `
+                <div class="card" style="margin-bottom: 10px;">
+                    <div class="flex-between">
+                        <div>
+                            <h3>${item.Course_code}</h3>
+                            <p><strong>📅 Days:</strong> ${item.Class_days}</p>
+                            <p><strong>🕐 Time:</strong> ${formatTime(item.Start_time)} - ${formatTime(item.End_time)}</p>
+                            <p><strong>📍 Location:</strong> ${item.Location}</p>
+                        </div>
+                        ${!readOnly ? `<button class="btn btn-danger btn-sm" onclick="deleteClass('${item.Course_code}')">Delete</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('addClassForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                course_code: document.getElementById('course_code').value,
+                class_days: document.getElementById('class_days').value,
+                location: document.getElementById('location').value,
+                start_time: document.getElementById('start_time').value,
+                end_time: document.getElementById('end_time').value
+            };
+
+            try {
+                await apiRequest('/schedule/class', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
+
+                alert('Class added successfully!');
+                closeModal('addClassModal');
+                document.getElementById('addClassForm').reset();
+                loadSchedule();
+                loadFreeTime(document.querySelector('.day-tab.active')?.dataset.day || today);
+            } catch (error) {
+                alert('Error adding class: ' + error.message);
+            }
+        });
+
+        async function deleteClass(courseCode) {
+            if (!confirm('Are you sure you want to delete this class?')) return;
+
+            try {
+                await apiRequest(`/schedule/class/${encodeURIComponent(courseCode)}`, {
+                    method: 'DELETE'
+                });
+
+                alert('Class deleted!');
+                loadSchedule();
+                loadFreeTime(document.querySelector('.day-tab.active')?.dataset.day || today);
+            } catch (error) {
+                alert('Error deleting class: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

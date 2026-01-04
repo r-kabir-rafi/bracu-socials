@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>Campus Locations</h1>
+
+        <div class="card">
+            <h2>Check In</h2>
+            <form id="checkInForm">
+                <div class="form-group">
+                    <label for="location_id">Location</label>
+                    <select id="location_id" name="location_id" required>
+                        <option value="">Select a location</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="room_number">Room Number (Optional)</label>
+                    <input type="text" id="room_number" name="room_number" placeholder="e.g., 9A-4C, 11B-27L">
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status" required>
+                        <option value="studying">Studying</option>
+                        <option value="socializing">Socializing</option>
+                        <option value="available to meet">Available to Meet</option>
+                        <option value="busy">Busy</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="visible_to">Visible To</label>
+                    <select id="visible_to" name="visible_to" required>
+                        <option value="friends">Friends Only</option>
+                        <option value="public">Everyone</option>
+                        <option value="private">No One</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Check In</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Friends Nearby</h2>
+            <div id="nearbyFriends"></div>
+        </div>
+
+        <div class="card">
+            <h2>My Check-In History</h2>
+            <div id="checkInHistory"></div>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        async function loadLocations() {
+            try {
+                const spots = await apiRequest('/location/spots');
+                const select = document.getElementById('location_id');
+                
+                spots.forEach(spot => {
+                    const option = document.createElement('option');
+                    option.value = spot.Spot_ID;
+                    option.textContent = `${spot.Name} (${spot.Category})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading locations:', error);
+            }
+        }
+
+        async function loadNearbyFriends() {
+            try {
+                const friends = await apiRequest('/location/nearby');
+                displayNearbyFriends(friends);
+            } catch (error) {
+                console.error('Error loading nearby friends:', error);
+            }
+        }
+
+        function displayNearbyFriends(friends) {
+            const container = document.getElementById('nearbyFriends');
+            
+            if (friends.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No friends nearby</p>';
+                return;
+            }
+
+            container.innerHTML = friends.map(friend => `
+                <div class="user-card">
+                    <img src="/uploads/${friend.Profile_pic}" alt="${friend.Full_name}" onerror="this.src='../assets/images/default-avatar.svg'">
+                    <div class="user-info-card">
+                        <h3>${friend.Full_name}</h3>
+                        <p>📍 ${friend.location_name}</p>
+                        <p>Status: <span class="status-badge status-online">${friend.check_in_status}</span></p>
+                        <p style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(friend.Created_at)}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadCheckInHistory() {
+            try {
+                const history = await apiRequest('/location/history');
+                displayCheckInHistory(history);
+            } catch (error) {
+                console.error('Error loading check-in history:', error);
+            }
+        }
+
+        function displayCheckInHistory(history) {
+            const container = document.getElementById('checkInHistory');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No check-in history</p>';
+                return;
+            }
+
+            container.innerHTML = history.map(item => `
+                <div style="padding: 15px; border-bottom: 1px solid var(--border-color);">
+                    <h4>${item.location_name}</h4>
+                    <p>Status: ${item.Status}</p>
+                    <p style="font-size: 12px; color: var(--text-secondary);">${formatDate(item.Created_at)}</p>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('checkInForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                location_id: parseInt(document.getElementById('location_id').value),
+                status: document.getElementById('status').value,
+                visible_to: document.getElementById('visible_to').value,
+                room_number: document.getElementById('room_number').value || null
+            };
+
+            try {
+                await apiRequest('/location/checkin', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
+
+                alert('Checked in successfully!');
+                document.getElementById('checkInForm').reset();
+                loadNearbyFriends();
+                loadCheckInHistory();
+            } catch (error) {
+                alert('Error checking in: ' + error.message);
+            }
+        });
+
+        loadLocations();
+        loadNearbyFriends();
+        loadCheckInHistory();
+    </script>
+</body>
+</html>

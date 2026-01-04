@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Event - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div style="margin-bottom: 20px;">
+            <a href="events.html" class="btn btn-secondary">← Back to Events</a>
+        </div>
+
+        <div id="loading" class="card" style="text-align: center;">
+            <p>Loading event...</p>
+        </div>
+
+        <div id="eventContent" style="display: none;">
+            <div class="card" id="eventHeader">
+            </div>
+
+            <div class="card" id="rsvpSection">
+                <h3>Your RSVP</h3>
+                <div id="rsvpButtons"></div>
+            </div>
+
+            <div class="card" id="editSection" style="display: none;">
+                <h3>✏️ Edit Event</h3>
+                <form id="editEventForm">
+                    <div class="form-group">
+                        <label for="edit_name">Event Name</label>
+                        <input type="text" id="edit_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_description">Description</label>
+                        <textarea id="edit_description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_location">Location</label>
+                        <input type="text" id="edit_location" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_event_time">Date & Time</label>
+                        <input type="datetime-local" id="edit_event_time" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_max_participant">Max Participants (optional)</label>
+                        <input type="number" id="edit_max_participant" min="1">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-danger" onclick="deleteEvent()">Delete Event</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Participants</h3>
+                <div class="tab-container" style="margin-bottom: 15px;">
+                    <button class="tab-btn active" onclick="filterParticipants('all')">All</button>
+                    <button class="tab-btn" onclick="filterParticipants('accepted')">Accepted</button>
+                    <button class="tab-btn" onclick="filterParticipants('maybe')">Maybe</button>
+                    <button class="tab-btn" onclick="filterParticipants('declined')">Declined</button>
+                </div>
+                <div id="participantsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .participant-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .participant-card img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-accepted { background: var(--success); color: #fff; }
+        .status-maybe { background: var(--warning); color: #000; }
+        .status-declined { background: var(--danger); color: #fff; }
+        
+        .event-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .event-info-item {
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+        }
+        
+        .event-info-item label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        
+        .event-info-item span {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .rsvp-btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .rsvp-btn-group .btn {
+            flex: 1;
+        }
+        
+        .current-rsvp {
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('id');
+
+        if (!eventId) {
+            window.location.href = 'events.html';
+        }
+
+        let allParticipants = [];
+        let currentFilter = 'all';
+        let currentEvent = null;
+
+        async function loadEvent() {
+            try {
+                const event = await apiRequest(`/events/${eventId}`);
+                currentEvent = event;
+                const participants = await apiRequest(`/events/${eventId}/participants`);
+                allParticipants = participants;
+
+                document.title = `${event.Name} - BRACu Socials`;
+
+                const eventDate = new Date(event.event_time);
+                const isPast = eventDate < new Date();
+
+                const userInfo = getUserInfo();
+                const isCreator = event.created_by === userInfo?.id;
+
+                document.getElementById('eventHeader').innerHTML = `
+                    <h1 style="margin-bottom: 10px;">${event.Name}</h1>
+                    ${isPast ? '<span class="status-badge status-declined" style="margin-bottom: 15px; display: inline-block;">Past Event</span>' : ''}
+                    ${isCreator ? '<span class="status-badge status-accepted" style="margin-bottom: 15px; display: inline-block; margin-left: 10px;">Your Event</span>' : ''}
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">${event.description || 'No description provided'}</p>
+                    
+                    <div class="event-info-grid">
+                        <div class="event-info-item">
+                            <label>📍 Location</label>
+                            <span>${event.location}</span>
+                        </div>
+                        <div class="event-info-item">
+                            <label>🕐 Date & Time</label>
+                            <span>${formatDate(event.event_time)}</span>
+                        </div>
+                        <div class="event-info-item">
+                            <label>👥 Participants</label>
+                            <span>${event.participant_count}${event.max_participant ? ' / ' + event.max_participant : ''}</span>
+                        </div>
+                        <div class="event-info-item">
+                            <label>👤 Created by</label>
+                            <span>${event.creator_name}</span>
+                        </div>
+                    </div>
+                `;
+
+                if (isCreator && !isPast) {
+                    document.getElementById('editSection').style.display = 'block';
+                    document.getElementById('edit_name').value = event.Name;
+                    document.getElementById('edit_description').value = event.description || '';
+                    document.getElementById('edit_location').value = event.location;
+                    const eventTime = new Date(event.event_time);
+                    document.getElementById('edit_event_time').value = eventTime.toISOString().slice(0, 16);
+                    document.getElementById('edit_max_participant').value = event.max_participant || '';
+                }
+
+                const myRsvp = participants.find(p => p.ID === userInfo?.id);
+
+                let rsvpHtml = '';
+                if (myRsvp) {
+                    rsvpHtml = `
+                        <div class="current-rsvp">
+                            <p>Your current response: <span class="status-badge status-${myRsvp.rsvp_status}">${myRsvp.rsvp_status.toUpperCase()}</span></p>
+                        </div>
+                    `;
+                }
+                
+                if (!isPast) {
+                    rsvpHtml += `
+                        <p style="margin-bottom: 10px;">Change your response:</p>
+                        <div class="rsvp-btn-group">
+                            <button class="btn btn-primary" onclick="rsvpEvent('accepted')">✓ Accept</button>
+                            <button class="btn btn-secondary" onclick="rsvpEvent('maybe')">? Maybe</button>
+                            <button class="btn btn-danger" onclick="rsvpEvent('declined')">✗ Decline</button>
+                        </div>
+                    `;
+                } else {
+                    rsvpHtml += '<p style="color: var(--text-secondary);">This event has already passed.</p>';
+                }
+
+                document.getElementById('rsvpButtons').innerHTML = rsvpHtml;
+
+                displayParticipants(participants);
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('eventContent').style.display = 'block';
+            } catch (error) {
+                document.getElementById('loading').innerHTML = `<p style="color: var(--danger);">Error loading event: ${error.message}</p>`;
+            }
+        }
+
+        function displayParticipants(participants) {
+            const container = document.getElementById('participantsList');
+
+            let filtered = participants;
+            if (currentFilter !== 'all') {
+                filtered = participants.filter(p => p.rsvp_status === currentFilter);
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p style="text-align: center; color: var(--text-secondary);">No participants ${currentFilter !== 'all' ? 'with status: ' + currentFilter : ''}</p>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(participant => `
+                <div class="participant-card">
+                    <img src="/uploads/${participant.Profile_pic}" alt="${participant.Full_name}" 
+                         onerror="this.src='../assets/images/default-avatar.svg'">
+                    <div style="flex: 1;">
+                        <a href="view-profile.html?id=${participant.ID}" style="color: inherit; font-weight: 600;">${participant.Full_name}</a>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin: 2px 0 0 0;">${participant.Department || 'No department'} • Year ${participant.Year || 'N/A'}</p>
+                    </div>
+                    <span class="status-badge status-${participant.rsvp_status}">${participant.rsvp_status}</span>
+                </div>
+            `).join('');
+        }
+
+        function filterParticipants(status) {
+            currentFilter = status;
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            displayParticipants(allParticipants);
+        }
+
+        async function rsvpEvent(status) {
+            try {
+                await apiRequest(`/events/${eventId}/rsvp`, {
+                    method: 'POST',
+                    body: JSON.stringify({ rsvp_status: status })
+                });
+
+                alert('RSVP updated!');
+                loadEvent();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        document.getElementById('editEventForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('edit_name').value,
+                description: document.getElementById('edit_description').value,
+                location: document.getElementById('edit_location').value,
+                event_time: document.getElementById('edit_event_time').value,
+                max_participant: document.getElementById('edit_max_participant').value ? parseInt(document.getElementById('edit_max_participant').value) : null
+            };
+
+            try {
+                await apiRequest(`/events/${eventId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(formData)
+                });
+                alert('Event updated successfully!');
+                loadEvent();
+            } catch (error) {
+                alert('Error updating event: ' + error.message);
+            }
+        });
+
+        async function deleteEvent() {
+            if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) return;
+
+            try {
+                await apiRequest(`/events/${eventId}`, { method: 'DELETE' });
+                alert('Event deleted successfully');
+                window.location.href = 'events.html';
+            } catch (error) {
+                alert('Error deleting event: ' + error.message);
+            }
+        }
+
+        loadEvent();
+    </script>
+</body>
+</html>

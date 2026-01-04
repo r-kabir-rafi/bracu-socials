@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 80px auto;
+            padding: 40px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow-hover);
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .login-header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>BRACu Socials</h1>
+            <p>Sign in to your account</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">University Email</label>
+                <input type="email" id="email" name="email" placeholder="your.email@g.bracu.ac.bd" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+
+            <div id="error-message" class="error-message" style="display: none;"></div>
+            <div id="success-message" class="success-message" style="display: none;"></div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">Login</button>
+        </form>
+
+        <p style="text-align: center; margin-top: 15px;">
+            <a href="forgot-password.html" style="color: var(--text-secondary); text-decoration: none; font-size: 14px;">Forgot your password?</a>
+        </p>
+
+        <p style="text-align: center; margin-top: 20px;">
+            Don't have an account? <a href="register.html" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">Register here</a>
+        </p>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (isAuthenticated()) {
+            window.location.href = 'dashboard.html';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const data = await apiRequest('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+
+                setAuthToken(data.token);
+                setUserInfo(data.user);
+                showSuccess('Login successful! Redirecting...');
+
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+    </script>
+</body>
+</html>

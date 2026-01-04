@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friends - BRACu Socials</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dashboard.html" class="logo">BRACu Socials</a>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="friends.html">Friends</a></li>
+                    <li><a href="groups.html">Groups</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="schedule.html">Schedule</a></li>
+                    <li><a href="location.html">Location</a></li>
+                    <li><a href="profile.html">Profile</a></li>
+                </ul>
+            </nav>
+            <div class="user-info"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>Friends</h1>
+
+        <div class="card">
+            <h3>🔍 Find People</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 15px;">Search for students by name or student ID</p>
+            <div class="form-group" style="margin-bottom: 0;">
+                <input type="text" id="searchQuery" placeholder="Search by name or student ID...">
+            </div>
+            <div id="searchResults" class="grid grid-2" style="margin-top: 15px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="tab-container">
+                <button class="tab-btn active" onclick="switchTab('friends')">My Friends</button>
+                <button class="tab-btn" onclick="switchTab('suggestions')">Suggestions</button>
+                <button class="tab-btn" onclick="switchTab('requests')">Requests</button>
+                <button class="tab-btn" onclick="switchTab('sent')">Sent</button>
+            </div>
+
+            <div id="friendsTab" class="tab-content">
+                <div id="friendsList" class="grid grid-2"></div>
+            </div>
+
+            <div id="suggestionsTab" class="tab-content" style="display: none;">
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">People you may know</p>
+                <div id="suggestionsList" class="grid grid-2"></div>
+            </div>
+
+            <div id="requestsTab" class="tab-content" style="display: none;">
+                <div id="requestsList"></div>
+            </div>
+
+            <div id="sentTab" class="tab-content" style="display: none;">
+                <div id="sentRequestsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script>
+        if (!requireAuth()) {
+        }
+
+        updateNavbar();
+
+        let currentTab = 'friends';
+
+        let searchTimeout;
+        document.getElementById('searchQuery').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            
+            if (query.length < 2) {
+                document.getElementById('searchResults').innerHTML = '';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => searchUsers(query), 300);
+        });
+
+        async function searchUsers(query) {
+            try {
+                const users = await apiRequest(`/friends/search?query=${encodeURIComponent(query)}`);
+                displaySearchResults(users);
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }
+
+        function displaySearchResults(users) {
+            const container = document.getElementById('searchResults');
+            if (users.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No users found</p>';
+                return;
+            }
+
+            container.innerHTML = users.map(user => {
+                const picUrl = user.Profile_pic ? `/uploads/${user.Profile_pic}` : '../assets/images/default-avatar.svg';
+                return `
+                <div class="user-card" style="display: flex; align-items: center; gap: 15px;">
+                    <img src="${picUrl}" alt="${user.Full_name}" 
+                         style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;"
+                         onerror="this.src='../assets/images/default-avatar.svg'">
+                    <div class="user-info-card">
+                        <h3><a href="view-profile.html?id=${user.ID}" style="color: inherit; text-decoration: none;">${user.Full_name}</a></h3>
+                        <p>${user.Student_ID}</p>
+                        <p>${user.Department} - Year ${user.Year}</p>
+                        <div style="margin-top: 10px; display: flex; gap: 10px;">
+                            <button class="btn btn-primary btn-sm" onclick="sendFriendRequest(${user.ID})">Add Friend</button>
+                            <a href="view-profile.html?id=${user.ID}" class="btn btn-outline btn-sm">View Profile</a>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('friendsTab').style.display = tab === 'friends' ? 'block' : 'none';
+            document.getElementById('suggestionsTab').style.display = tab === 'suggestions' ? 'block' : 'none';
+            document.getElementById('requestsTab').style.display = tab === 'requests' ? 'block' : 'none';
+            document.getElementById('sentTab').style.display = tab === 'sent' ? 'block' : 'none';
+
+            loadTabContent();
+        }
+
+        async function loadTabContent() {
+            if (currentTab === 'friends') {
+                loadFriendsList();
+            } else if (currentTab === 'suggestions') {
+                loadSuggestions();
+            } else if (currentTab === 'requests') {
+                loadFriendRequests();
+            } else if (currentTab === 'sent') {
+                loadSentRequests();
+            }
+        }
+
+        async function loadSuggestions() {
+            try {
+                const suggestions = await apiRequest('/smart-matching/suggest-friends');
+                const container = document.getElementById('suggestionsList');
+                
+                if (suggestions.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No suggestions available at the moment</p>';
+                    return;
+                }
+
+                container.innerHTML = suggestions.map(user => {
+                    const picUrl = user.Profile_pic ? `/uploads/${user.Profile_pic}` : '../assets/images/default-avatar.svg';
+                    return `
+                    <div class="user-card" style="display: flex; align-items: center; gap: 15px;">
+                        <img src="${picUrl}" alt="${user.Full_name}" 
+                             style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;"
+                             onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div class="user-info-card" style="flex: 1;">
+                            <h3><a href="view-profile.html?id=${user.ID}" style="color: inherit; text-decoration: none;">${user.Full_name}</a></h3>
+                            <p>${user.Student_ID}</p>
+                            <p>${user.Department || 'No department'} ${user.Year ? '- Year ' + user.Year : ''}</p>
+                            ${user.Interests ? `<p style="font-size: 12px; color: var(--text-secondary);">Interests: ${user.Interests.substring(0, 50)}${user.Interests.length > 50 ? '...' : ''}</p>` : ''}
+                            <div style="margin-top: 10px; display: flex; gap: 10px;">
+                                <button class="btn btn-primary btn-sm" onclick="sendFriendRequest(${user.ID})">Add Friend</button>
+                                <a href="view-profile.html?id=${user.ID}" class="btn btn-outline btn-sm">View Profile</a>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            } catch (error) {
+                console.error('Error loading suggestions:', error);
+            }
+        }
+
+        async function loadFriendsList() {
+            try {
+                const friends = await apiRequest('/friends/list');
+                const container = document.getElementById('friendsList');
+                
+                if (friends.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">You have no friends yet. Start by searching and adding friends!</p>';
+                    return;
+                }
+
+                container.innerHTML = friends.map(friend => {
+                    const picUrl = friend.Profile_pic ? `/uploads/${friend.Profile_pic}` : '../assets/images/default-avatar.svg';
+                    return `
+                    <div class="user-card" style="display: flex; align-items: center; gap: 15px;">
+                        <img src="${picUrl}" alt="${friend.Full_name}" 
+                             style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;"
+                             onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div class="user-info-card">
+                            <h3><a href="view-profile.html?id=${friend.ID}" style="color: inherit; text-decoration: none;">${friend.Full_name}</a></h3>
+                            <p>${friend.Student_ID}</p>
+                            <p>${friend.Department} - Year ${friend.Year}</p>
+                            <span class="status-badge ${friend.Status === 'online' ? 'status-online' : 'status-offline'}">${friend.Status}</span>
+                            <div style="margin-top: 10px; display: flex; gap: 10px;">
+                                <a href="view-profile.html?id=${friend.ID}" class="btn btn-outline btn-sm">View Profile</a>
+                                <button class="btn btn-danger btn-sm" onclick="removeFriend(${friend.ID})">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            } catch (error) {
+                console.error('Error loading friends:', error);
+            }
+        }
+
+        async function loadFriendRequests() {
+            try {
+                const requests = await apiRequest('/friends/requests/incoming');
+                const container = document.getElementById('requestsList');
+                
+                if (requests.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No friend requests</p>';
+                    return;
+                }
+
+                container.innerHTML = requests.map(request => {
+                    const picUrl = request.Profile_pic ? `/uploads/${request.Profile_pic}` : '../assets/images/default-avatar.svg';
+                    return `
+                    <div class="user-card" style="display: flex; align-items: center; gap: 15px;">
+                        <img src="${picUrl}" alt="${request.Full_name}" 
+                             style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;"
+                             onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div class="user-info-card">
+                            <h3><a href="view-profile.html?id=${request.Sender}" style="color: inherit; text-decoration: none;">${request.Full_name}</a></h3>
+                            <p>${request.Student_ID}</p>
+                            <p>${request.Department} - Year ${request.Year}</p>
+                            <p style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(request.Created_at)}</p>
+                            <div style="margin-top: 10px; display: flex; gap: 10px;">
+                                <button class="btn btn-secondary btn-sm" onclick="acceptRequest(${request.ID})">Accept</button>
+                                <button class="btn btn-danger btn-sm" onclick="declineRequest(${request.ID})">Decline</button>
+                                <a href="view-profile.html?id=${request.Sender}" class="btn btn-outline btn-sm">View</a>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            } catch (error) {
+                console.error('Error loading requests:', error);
+            }
+        }
+
+        async function loadSentRequests() {
+            try {
+                const requests = await apiRequest('/friends/requests/sent');
+                const container = document.getElementById('sentRequestsList');
+                
+                if (requests.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No sent requests</p>';
+                    return;
+                }
+
+                container.innerHTML = requests.map(request => {
+                    const picUrl = request.Profile_pic ? `/uploads/${request.Profile_pic}` : '../assets/images/default-avatar.svg';
+                    return `
+                    <div class="user-card" style="display: flex; align-items: center; gap: 15px;">
+                        <img src="${picUrl}" alt="${request.Full_name}" 
+                             style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;"
+                             onerror="this.src='../assets/images/default-avatar.svg'">
+                        <div class="user-info-card">
+                            <h3><a href="view-profile.html?id=${request.Receiver}" style="color: inherit; text-decoration: none;">${request.Full_name}</a></h3>
+                            <p>${request.Student_ID}</p>
+                            <p>${request.Department} - Year ${request.Year}</p>
+                            <p style="font-size: 12px; color: var(--text-secondary);">Sent ${getTimeAgo(request.Created_at)}</p>
+                            <a href="view-profile.html?id=${request.Receiver}" class="btn btn-outline btn-sm" style="margin-top: 10px;">View Profile</a>
+                        </div>
+                    </div>
+                `}).join('');
+            } catch (error) {
+                console.error('Error loading sent requests:', error);
+            }
+        }
+
+        async function sendFriendRequest(userId) {
+            try {
+                await apiRequest('/friends/request', {
+                    method: 'POST',
+                    body: JSON.stringify({ receiver_id: userId })
+                });
+                alert('Friend request sent!');
+                document.getElementById('searchQuery').value = '';
+                document.getElementById('searchResults').innerHTML = '';
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function acceptRequest(requestId) {
+            try {
+                await apiRequest(`/friends/request/${requestId}/accept`, { method: 'POST' });
+                alert('Friend request accepted!');
+                loadFriendRequests();
+                if (currentTab === 'friends') loadFriendsList();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function declineRequest(requestId) {
+            try {
+                await apiRequest(`/friends/request/${requestId}/decline`, { method: 'POST' });
+                alert('Friend request declined');
+                loadFriendRequests();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function removeFriend(friendId) {
+            if (!confirm('Are you sure you want to remove this friend?')) return;
+            
+            try {
+                await apiRequest(`/friends/${friendId}`, { method: 'DELETE' });
+                alert('Friend removed');
+                loadFriendsList();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        loadFriendsList();
+    </script>
+</body>
+</html>
